@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CTRI Clinical Trials Search</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      color: #1a202c;
+    }
+
+    .screen { display: none; min-height: 100vh; }
+    .screen.active { display: flex; }
+
+    /* ── Password screen ─────────────────────────────────────────────────── */
+    #password-screen {
+      align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1a365d 0%, #2a69ac 100%);
+    }
+    .login-card {
+      background: white; border-radius: 16px; padding: 48px 40px;
+      width: 100%; max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;
+    }
+    .login-card .logo {
+      width: 64px; height: 64px; background: #2a69ac; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px; font-size: 28px;
+    }
+    .login-card h1  { font-size: 22px; font-weight: 700; color: #1a365d; margin-bottom: 6px; }
+    .login-card p   { font-size: 13px; color: #718096; margin-bottom: 28px; }
+    .login-card input[type="password"] {
+      width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px;
+      font-size: 15px; outline: none; letter-spacing: 4px; text-align: center;
+      margin-bottom: 12px; transition: border-color 0.2s;
+    }
+    .login-card input[type="password"]:focus { border-color: #2a69ac; }
+    .login-card .error { color: #e53e3e; font-size: 13px; min-height: 20px; margin-bottom: 12px; }
+    .btn-primary {
+      width: 100%; padding: 13px; background: #2a69ac; color: white;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s, transform 0.1s;
+    }
+    .btn-primary:hover  { background: #1a4f8a; }
+    .btn-primary:active { transform: scale(0.98); }
+
+    /* ── App screen ──────────────────────────────────────────────────────── */
+    #app-screen { flex-direction: column; }
+
+    .header {
+      background: #1a365d; color: white; padding: 16px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-left .icon { font-size: 24px; }
+    .header-left h1   { font-size: 18px; font-weight: 700; }
+    .header-left span { font-size: 12px; opacity: 0.7; display: block; margin-top: 2px; }
+    .badge {
+      background: #c6f6d5; color: #276749;
+      font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+    }
+
+    /* ── Search section ──────────────────────────────────────────────────── */
+    .search-section {
+      background: white; border-bottom: 1px solid #e2e8f0; padding: 24px 32px;
+    }
+    .search-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px; max-width: 900px; margin-bottom: 16px;
+    }
+    .field-group { display: flex; flex-direction: column; gap: 6px; }
+    .field-group.full { grid-column: 1 / -1; }
+    .field-label {
+      font-size: 12px; font-weight: 600; color: #4a5568;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .field-group select,
+    .field-group input[type="text"],
+    .field-group input[type="date"] {
+      padding: 11px 14px; border: 2px solid #e2e8f0; border-radius: 8px;
+      font-size: 14px; outline: none; background: white; color: #2d3748;
+      transition: border-color 0.2s; width: 100%;
+    }
+    .field-group select:focus,
+    .field-group input:focus   { border-color: #2a69ac; }
+    .field-group input::placeholder { color: #a0aec0; }
+
+    .date-row {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      gap: 8px; align-items: center;
+    }
+    .date-sep { font-size: 13px; color: #718096; text-align: center; }
+
+    .search-actions { display: flex; gap: 10px; max-width: 900px; }
+    .btn-search {
+      padding: 12px 32px; background: #2a69ac; color: white;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 8px;
+      transition: background 0.2s;
+    }
+    .btn-search:hover    { background: #1a4f8a; }
+    .btn-search:disabled { background: #a0aec0; cursor: not-allowed; }
+    .btn-clear {
+      padding: 12px 20px; background: white; color: #718096;
+      border: 2px solid #e2e8f0; border-radius: 8px;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-clear:hover { border-color: #a0aec0; color: #4a5568; }
+    .search-hint { margin-top: 10px; font-size: 12px; color: #a0aec0; }
+
+    /* ── Results ─────────────────────────────────────────────────────────── */
+    .results-area { flex: 1; padding: 24px 32px; overflow-x: auto; }
+    .status-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; min-height: 36px;
+    }
+    .status-text { font-size: 14px; color: #4a5568; font-weight: 500; }
+    .status-text.loading { color: #2a69ac; }
+    .status-text.error   { color: #e53e3e; }
+    .status-text.success { color: #276749; }
+
+    .btn-download {
+      padding: 9px 18px; background: #276749; color: white;
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer; display: none; align-items: center; gap: 6px;
+      transition: background 0.2s;
+    }
+    .btn-download:hover { background: #1e4f36; }
+    .btn-download.show  { display: flex; }
+
+    .spinner {
+      display: inline-block; width: 15px; height: 15px;
+      border: 2px solid #bee3f8; border-top-color: #2a69ac;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .table-wrapper {
+      background: white; border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: #1a365d; color: white; }
+    thead th {
+      padding: 12px 14px; text-align: left; font-weight: 600;
+      white-space: nowrap; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    tbody tr { border-bottom: 1px solid #f0f4f8; }
+    tbody tr:hover { background: #f7fafc; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 11px 14px; color: #2d3748; max-width: 300px; word-wrap: break-word; }
+
+    .ctri-id {
+      font-family: monospace; font-size: 12px;
+      color: #2a69ac; font-weight: 600; white-space: nowrap;
+    }
+    .india-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #ebf8ff; color: #2a69ac;
+      font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+    }
+    .tag { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .tag-recruiting { background: #c6f6d5; color: #276749; }
+    .tag-completed  { background: #bee3f8; color: #2a4a7f; }
+    .tag-other      { background: #fefcbf; color: #744210; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: #a0aec0; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 15px; }
+
+    .footer-note {
+      padding: 12px 32px; background: #f7fafc; border-top: 1px solid #e2e8f0;
+      font-size: 11px; color: #a0aec0; text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<!-- PASSWORD SCREEN -->
+<div id="password-screen" class="screen active">
+  <div class="login-card">
+    <div class="logo">🔬</div>
+    <h1>CTRI Trial Search</h1>
+    <p>Clinical Trials Registry — India<br>Enter your access password to continue</p>
+    <input type="password" id="pwd-input" placeholder="••••••" autofocus />
+    <div class="error" id="pwd-error"></div>
+    <button class="btn-primary" onclick="checkPassword()">Enter</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app-screen" class="screen">
+
+  <div class="header">
+    <div class="header-left">
+      <span class="icon">🔬</span>
+      <div>
+        <h1>CTRI Clinical Trials Search</h1>
+        <span>Clinical Trials Registry — India (via WHO ICTRP)</span>
+      </div>
+    </div>
+    <span class="badge">🇮🇳 India Only</span>
+  </div>
+
+  <div class="search-section">
+    <div class="search-grid">
+
+      <!-- Category -->
+      <div class="field-group">
+        <label class="field-label">Health Category</label>
+        <select id="category-input">
+          <option value="">— All Categories —</option>
+          <optgroup label="Cardiovascular">
+            <option value="hypertension">Hypertension</option>
+            <option value="heart failure">Heart Failure</option>
+            <option value="coronary artery disease">Coronary Artery Disease</option>
+            <option value="stroke">Stroke</option>
+            <option value="atrial fibrillation">Atrial Fibrillation</option>
+          </optgroup>
+          <optgroup label="Metabolic & Endocrine">
+            <option value="diabetes">Diabetes</option>
+            <option value="type 2 diabetes">Type 2 Diabetes</option>
+            <option value="obesity">Obesity</option>
+            <option value="thyroid">Thyroid</option>
+            <option value="metabolic syndrome">Metabolic Syndrome</option>
+          </optgroup>
+          <optgroup label="Oncology">
+            <option value="cancer">Cancer</option>
+            <option value="breast cancer">Breast Cancer</option>
+            <option value="lung cancer">Lung Cancer</option>
+            <option value="cervical cancer">Cervical Cancer</option>
+            <option value="leukemia">Leukemia</option>
+            <option value="lymphoma">Lymphoma</option>
+          </optgroup>
+          <optgroup label="Infectious Disease">
+            <option value="tuberculosis">Tuberculosis</option>
+            <option value="HIV">HIV / AIDS</option>
+            <option value="malaria">Malaria</option>
+            <option value="dengue">Dengue</option>
+            <option value="COVID-19">COVID-19</option>
+            <option value="hepatitis">Hepatitis</option>
+          </optgroup>
+          <optgroup label="Respiratory">
+            <option value="asthma">Asthma</option>
+            <option value="COPD">COPD</option>
+            <option value="pneumonia">Pneumonia</option>
+          </optgroup>
+          <optgroup label="Neurological">
+            <option value="epilepsy">Epilepsy</option>
+            <option value="alzheimer">Alzheimer's Disease</option>
+            <option value="parkinson">Parkinson's Disease</option>
+            <option value="depression">Depression</option>
+            <option value="schizophrenia">Schizophrenia</option>
+          </optgroup>
+          <optgroup label="Musculoskeletal">
+            <option value="arthritis">Arthritis</option>
+            <option value="osteoporosis">Osteoporosis</option>
+            <option value="rheumatoid arthritis">Rheumatoid Arthritis</option>
+          </optgroup>
+          <optgroup label="Gastroenterology">
+            <option value="liver cirrhosis">Liver Cirrhosis</option>
+            <option value="irritable bowel">Irritable Bowel Syndrome</option>
+            <option value="inflammatory bowel">Inflammatory Bowel Disease</option>
+          </optgroup>
+          <optgroup label="Women's Health">
+            <option value="polycystic ovary">Polycystic Ovary Syndrome</option>
+            <option value="pregnancy">Pregnancy</option>
+            <option value="endometriosis">Endometriosis</option>
+          </optgroup>
+          <optgroup label="Paediatrics">
+            <option value="neonatal">Neonatal</option>
+            <option value="childhood malnutrition">Childhood Malnutrition</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- Keyword -->
+      <div class="field-group">
+        <label class="field-label">Keyword (optional)</label>
+        <input type="text" id="search-input"
+          placeholder="e.g. insulin, metformin, vaccine..."
+          onkeydown="if(event.key==='Enter') runSearch()" />
+      </div>
+
+      <!-- Date range -->
+      <div class="field-group full">
+        <label class="field-label">Registration Date Range (optional)</label>
+        <div class="date-row">
+          <input type="date" id="date-from" />
+          <span class="date-sep">→</span>
+          <input type="date" id="date-to" />
+        </div>
+      </div>
+
+    </div>
+
+    <div class="search-actions">
+      <button class="btn-search" id="search-btn" onclick="runSearch()">🔍 Search</button>
+      <button class="btn-clear" onclick="clearForm()">✕ Clear</button>
+    </div>
+    <div class="search-hint">
+      Select a category and/or enter a keyword · Optionally filter by registration date · Results are CTRI (India) only
+    </div>
+  </div>
+
+  <div class="results-area">
+    <div class="status-bar">
+      <div class="status-text" id="status-text"></div>
+      <button class="btn-download" id="download-btn" onclick="downloadCSV()">⬇️ Download CSV</button>
+    </div>
+    <div id="results-container">
+      <div class="empty-state">
+        <div class="icon">🔬</div>
+        <p>Select a category or enter a keyword to search for clinical trials registered in India</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Data sourced from WHO ICTRP · CTRI (India) registered trials only · Updated weekly · For research purposes only
+  </div>
+</div>
+
+<script>
+  const WORKER_URL = "https://scrape.ssoconsul.workers.dev";
+  const PASSWORD   = "Ethics";
+
+  let currentTrials  = [];
+  let currentKeyword = "";
+
+  function checkPassword() {
+    if (document.getElementById("pwd-input").value === PASSWORD) {
+      document.getElementById("password-screen").classList.remove("active");
+      document.getElementById("app-screen").classList.add("active");
+    } else {
+      document.getElementById("pwd-error").textContent = "Incorrect password. Please try again.";
+      document.getElementById("pwd-input").value = "";
+      document.getElementById("pwd-input").focus();
+    }
+  }
+  document.getElementById("pwd-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") checkPassword();
+  });
+
+  function clearForm() {
+    document.getElementById("category-input").value = "";
+    document.getElementById("search-input").value   = "";
+    document.getElementById("date-from").value      = "";
+    document.getElementById("date-to").value        = "";
+    document.getElementById("status-text").textContent = "";
+    document.getElementById("download-btn").classList.remove("show");
+    document.getElementById("results-container").innerHTML = `
+      <div class="empty-state"><div class="icon">🔬</div>
+      <p>Select a category or enter a keyword to search for clinical trials registered in India</p></div>`;
+  }
+
+  async function runSearch() {
+    const category = document.getElementById("category-input").value.trim();
+    const keyword  = document.getElementById("search-input").value.trim();
+    const dateFrom = document.getElementById("date-from").value;
+    const dateTo   = document.getElementById("date-to").value;
+
+    if (!category && !keyword) {
+      setStatus("Please select a category or enter a keyword.", "error");
+      return;
+    }
+
+    const searchTerm = [category, keyword].filter(Boolean).join(" ");
+    currentKeyword   = searchTerm;
+    currentTrials    = [];
+
+    const btn = document.getElementById("search-btn");
+    btn.disabled  = true;
+    btn.innerHTML = '<span class="spinner"></span> Searching...';
+    setStatus('<span class="spinner"></span> Searching CTRI India for <strong>' + searchTerm + '</strong>...', "loading");
+    document.getElementById("download-btn").classList.remove("show");
+    document.getElementById("results-container").innerHTML = "";
+
+    try {
+      const resp = await fetch(WORKER_URL, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ keyword: searchTerm, dateFrom, dateTo }),
+      });
+
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.error || "Unknown error");
+
+      currentTrials = data.trials || [];
+
+      if (currentTrials.length === 0) {
+        setStatus(`No CTRI (India) trials found for "${searchTerm}". Try a different keyword.`, "error");
+        showEmpty(`No results found for "${searchTerm}"`);
+      } else {
+        setStatus(`✅ Found ${currentTrials.length} CTRI (India) trial(s) for "${searchTerm}"`, "success");
+        renderTable(currentTrials);
+        document.getElementById("download-btn").classList.add("show");
+      }
+    } catch (err) {
+      setStatus("❌ Error: " + err.message, "error");
+      showEmpty("Something went wrong. Please try again.");
+    }
+
+    btn.disabled  = false;
+    btn.innerHTML = "🔍 Search";
+  }
+
+  function renderTable(trials) {
+    const preferred = ["Main ID", "Public Title", "Health Condition(s) Studied",
+      "Intervention(s)", "Phase", "Recruitment Status",
+      "Date of Registration", "Primary Sponsor"];
+    const metaKeys  = ["Search Keyword", "Registry", "Scraped At"];
+    const allKeys   = Object.keys(trials[0]);
+    const dataKeys  = [
+      ...preferred.filter(k => allKeys.includes(k)),
+      ...allKeys.filter(k => !preferred.includes(k) && !metaKeys.includes(k))
+    ];
+
+    let html = `<div class="table-wrapper"><table><thead><tr>
+      <th>🇮🇳 Registry</th>
+      ${dataKeys.map(k => `<th>${k}</th>`).join("")}
+    </tr></thead><tbody>`;
+
+    for (const trial of trials) {
+      html += "<tr>";
+      html += `<td><span class="india-badge">🇮🇳 CTRI India</span></td>`;
+      for (const key of dataKeys) {
+        const val = trial[key] || "";
+        if (key === "Main ID") {
+          html += `<td><span class="ctri-id">${val || "—"}</span></td>`;
+        } else if (key === "Recruitment Status") {
+          const cls = val.toLowerCase().includes("recruit") ? "tag-recruiting"
+                    : val.toLowerCase().includes("complete") ? "tag-completed"
+                    : "tag-other";
+          html += `<td><span class="tag ${cls}">${val || "—"}</span></td>`;
+        } else {
+          html += `<td>${val || "—"}</td>`;
+        }
+      }
+      html += "</tr>";
+    }
+
+    html += "</tbody></table></div>";
+    document.getElementById("results-container").innerHTML = html;
+  }
+
+  function downloadCSV() {
+    if (!currentTrials.length) return;
+    const enriched = currentTrials.map(t => ({ "Registry": "CTRI - India", ...t }));
+    const headers  = Object.keys(enriched[0]);
+    const rows = [
+      headers.join(","),
+      ...enriched.map(t => headers.map(h => `"${(t[h]||"").replace(/"/g,'""')}"`).join(","))
+    ];
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    const date = new Date().toISOString().slice(0,10).replace(/-/g,"");
+    a.href = url;
+    a.download = `ctri_india_${currentKeyword.replace(/\s+/g,"_")}_${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function setStatus(msg, type = "") {
+    const el = document.getElementById("status-text");
+    el.innerHTML = msg; el.className = "status-text " + type;
+  }
+  function showEmpty(msg) {
+    document.getElementById("results-container").innerHTML =
+      `<div class="empty-state"><div class="icon">🔍</div><p>${msg}</p></div>`;
+  }
+</script>
+</body>
+</html>
