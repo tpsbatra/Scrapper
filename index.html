@@ -369,13 +369,14 @@
     const dateFrom = document.getElementById("date-from").value;
     const dateTo   = document.getElementById("date-to").value;
 
-    if (!category && !keyword) {
-      setStatus("Please select a category or enter a keyword.", "error");
-      return;
-    }
+   if (!category && !keyword && !dateFrom && !dateTo) {
+  setStatus("Please select a category, enter a keyword, or set a date range.", "error");
+  return;
+}
+// If only dates given, use a broad search term
+const searchTerm = [category, keyword].filter(Boolean).join(" ") || "clinical trial";
 
-    const searchTerm = [category, keyword].filter(Boolean).join(" ");
-    currentKeyword   = searchTerm;
+       currentKeyword   = searchTerm;
     currentTrials    = [];
 
     const btn = document.getElementById("search-btn");
